@@ -33,7 +33,11 @@ object LogParser {
     * - Warning
     * - Error with (severity: Int)
     */
-  trait LogLevel
+  sealed trait LogLevel
+
+  case object Info extends LogLevel
+  case object Warning extends LogLevel
+  case class Error(severity: Int) extends LogLevel
 
   /**
     * Now create an ADT for `LogMessage`, where `LogMessage` can be one of two possibilities:
@@ -42,7 +46,10 @@ object LogParser {
     */
   type Timestamp = Int
 
-  trait LogMessage
+  sealed trait LogMessage
+
+  case class KnownLog(logLevel: LogLevel, timestamp: Timestamp, message: String) extends LogMessage
+  case class UnknownLog(message: String) extends LogMessage
 
  /**
    * - Once you have defined your data types:
@@ -64,7 +71,12 @@ object LogParser {
     *
     * Hint: use the `split` method on `String` and pattern match on `Array`
     **/
-  def parseLog(str: String): LogMessage = ???
+  def parseLog(rawLog: String): LogMessage = rawLog.split(',') match {
+    case Array("E", severity, timestamp, message) => KnownLog(Error(severity.toInt), timestamp.toInt, message)
+    case Array("W", timestamp, message) => KnownLog(Warning, timestamp.toInt, message)
+    case Array("I", timestamp, message) => KnownLog(Info, timestamp.toInt, message)
+    case Array(message) => UnknownLog(message)
+  }
 
   /**
     * scala> parseLogFile("I,147,mice in the air\nX blblbaaaaa")
@@ -74,7 +86,10 @@ object LogParser {
     * Hint: Convert an Array to a List with .toList
     * What if we get an empty line from the fileContent?
     */
-  def parseLogFile(fileContent: String): List[LogMessage] = ???
+  def parseLogFile(rawContents: String): List[LogMessage] = rawContents match {
+    case "" => List()
+    case contents => contents.split('\n').toList.map(parseLog)
+  }
 
   /**
     * Define a function that returns only logs that are errors over the given severity level.
@@ -86,7 +101,10 @@ object LogParser {
     * scala> getErrorsOverSeverity(List(KnownLog(Error(2), 123, some error msg")), 2)
     * = List()
     **/
-  def getErrorsOverSeverity(logs: List[LogMessage], severity: Int): List[LogMessage] = ???
+  def getErrorsOverSeverity(logs: List[LogMessage], severity: Int): List[LogMessage] = logs.filter {
+    case KnownLog(Error(logSeverity), _, _) if logSeverity > severity => true
+    case _ => false
+  }
 
   /**
     * Write a function to convert a `LogMessage` to a readable `String`.
@@ -102,7 +120,12 @@ object LogParser {
     *
     * Hint: Pattern match and use string interpolation
     **/
-  def showLogMessage(log: LogMessage): String = ???
+  def showLogMessage(log: LogMessage): String = log match {
+    case KnownLog(Error(severity), timestamp, message) => s"""Error $severity ($timestamp) $message"""
+    case KnownLog(Warning, timestamp, message) => s"""Warning ($timestamp) $message"""
+    case KnownLog(Info, timestamp, message) => s"""Info ($timestamp) $message"""
+    case UnknownLog(message) => s"Unknown log: $message"
+  }
 
   /**
     * Use `showLogMessage` on error logs with severity greater than the given `severity`.
@@ -112,7 +135,10 @@ object LogParser {
     *
     * Hint: Use `parseLogFile`, `getErrorsOverSeverity` and `showLogMessage`
     **/
-  def showErrorsOverSeverity(fileContent: String, severity: Int): List[String] = ???
+  def showErrorsOverSeverity(fileContent: String, severity: Int): List[String] = {
+    val parsedLogFile = parseLogFile(fileContent)
+    getErrorsOverSeverity(parsedLogFile, severity).map(showLogMessage)
+  }
 
   /**
     * Now head over to `Main.scala` in the same package to complete the rest of the program.
